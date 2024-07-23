@@ -1,0 +1,12 @@
+pytorch-lightning
+wandb==0.13.3
+pydantic==1.10.2
+biopython==1.79
+pandas==1.4.4
+natsort==8.2.0
+Jinja2==3.1.2
+h5py
+lightning-transformers==0.2.1
+transformers
+triton
+torch
