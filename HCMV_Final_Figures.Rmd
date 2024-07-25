@@ -1,0 +1,167 @@
+---
+title: "GenSLM_FinalPlots"
+output: html_document
+date: "2024-07-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+```
+
+Loading in Data: (file paths specific to user)
+```{r}
+#setwd("/Users/grahamschultz/Downloads")
+tsne_data <- read.csv("genslm_tsne.csv")
+hcmv_data <- read.csv("genslm_hcmv_tsne.csv")
+tsne_ext <- read.csv("tsne_ext.csv")
+hcmv_ext <- read.csv("hcmv_tsne_ext.csv")
+con_scores <- read.csv("updatedScores.csv")
+amap = read.csv("summed_map.csv")
+```
+Cleaning:
+
+```{r}
+amap_adj = amap
+colnames(amap_adj) <- "attention"
+amap_adj$attention[1:1964] <- amap_adj$attention[1:1964] / 17
+amap_adj$attention[1965:78548] <- amap_adj$attention[1965:78548] / 16
+amap_adj$codon = 1:78548
+amap_adj$zscore = as.numeric(scale(amap_adj$attention))
+amap_adj$nuc = amap_adj$codon*3
+```
+
+```{r}
+tsne_data <- tsne_data %>%
+  mutate(Label = toupper(Label),
+         Label = case_when(
+           Label == "CHCMV" ~ "Chimpanzee CMV",
+           Label == "RHCMV" ~ "Rhesus CMV",
+           TRUE ~ Label
+         ))
+```
+
+```{r}
+tsne_ext <- tsne_ext %>%
+  mutate(Virus = toupper(Virus),
+         Virus = case_when(
+           Virus == "CHCMV" ~ "Chimpanzee CMV",
+           Virus == "RHCMV" ~ "Rhesus CMV",
+           TRUE ~ Virus
+         ))
+```
+
+Loading in Color-blind friendly palette
+
+```{r}
+tol_palette <- c("#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#CC6677", "#882255", "#AA4499")
+```
+
+Clustering (Single Window)
+```{r}
+ggplot(tsne_data, aes(x = TSNE1, y = TSNE2, color = Label)) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(values = tol_palette) +
+  labs(x = "z1", y = "z2") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.title = element_text(size = 12)
+  )
+```
+
+HCMV Only
+```{r}
+ggplot(hcmv_data, aes(x = TSNE1, y = TSNE2)) +
+  geom_point(color = "#44AA99") +
+  labs(x = "z1", y = "z2") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.title = element_text(size = 12)
+  )
+```
+
+Clustering (Sliding window)
+
+```{r}
+ggplot(tsne_ext, aes(x = TSNE1, y = TSNE2, color = Virus)) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(values = tol_palette) +
+  labs(x = "z1", y = "z2") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.title = element_text(size = 12)
+  )
+```
+
+```{r}
+ggplot(hcmv_ext, aes(x = TSNE1, y = TSNE2)) +
+  geom_point(color = "#44AA99") +
+  labs(x = "z1", y = "z2") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.title = element_text(size = 12)
+  )
+```
+
+Attention Plot (Coloring by gene classification shown in Additional_Attention_Cleaning.Rmd)
+
+```{r}
+ggplot(amap_adj, aes(x = nuc, y = attention)) +
+  geom_line() +
+  labs(x = "Nucleotide Index", y = "Total Attention Received") +
+  theme_minimal()
+```
+
+Conservation Scores:
+
+```{r}
+ggplot(con_scores, aes(x = conservation, y = attention, color = )) +
+  geom_point(alpha = 0.3) +
+  labs(title = "",
+       x = "Codon Conservation",
+       y = "Total Attention Received") +
+  theme_minimal()
+```
+
+Density Plots:
+
+```{r}
+ggplot(amap_adj, aes(x = attention)) +
+  geom_density() +
+  labs(title = NULL, x = "Total Attention Received", y = 'Density') +
+  theme_minimal() +
+  theme(panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "white"))
+```
+
+```{r}
+ggplot(con_scores, aes(x = conservation)) +
+  geom_density() +
+  labs(title = NULL, x = "Codon Conservation (%)", y = 'Density') +
+  theme_minimal() +
+  theme(panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "white"))
+
+```
+
+
+
+
+

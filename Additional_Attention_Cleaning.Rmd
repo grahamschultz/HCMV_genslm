@@ -1,0 +1,117 @@
+---
+title: "Attention_Cleaning"
+output: html_document
+date: "2024-07-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Adding gene data from GenBank:
+```{r}
+genes = read.csv('gene_features.csv')
+```
+
+```{r}
+genes <- genes[order(genes$start_index),]
+```
+
+```{r}
+amap_adj$nuc <- as.numeric(amap_adj$nuc)
+genes$start_index <- as.numeric(genes$start_index)
+genes$end_index <- as.numeric(genes$end_index)
+```
+
+```{r}
+map_nuc_to_gene <- function(nuc, genes) {
+  gene_index <- which(genes$start_index <= nuc & genes$end_index >= nuc)
+  if (length(gene_index) == 0) {
+    return(NA)  # If no gene matches, return NA
+  }
+  return(genes$gene_name[gene_index[1]])  # Return the first matching gene name
+}
+
+amap_adj$gene <- sapply(amap_adj$nuc, map_nuc_to_gene, genes=genes)
+```
+
+Defining Gene Classiciations (Vig et al.)
+```{r}
+essential = c('UL32','UL34','UL39','UL44','UL46','UL49','UL50','UL51','UL52','UL53','UL54','UL55','UL56','UL57','UL60','UL61','UL70','UL73','UL75','UL77','UL79','UL80','UL84','UL85','UL86','UL87','UL89','UL90','UL91','UL92','UL93','UL95','UL98','UL99','UL100','UL101','UL102','UL104','UL105','UL115','UL122','UL124')
+
+augment = c('UL21','UL26','UL27','UL28','UL29','UL30','UL38','UL47','UL48','UL69','UL71','UL72','UL74','UL76','UL82','UL94','UL96','UL97','UL103','UL112','UL113','UL114','UL117','UL123','US23','US24','US26','TRS1')
+```
+
+```{r}
+categorize_gene <- function(gene) {
+  if (is.na(gene)) {
+    return('NC')  # Non-coding
+  } else if (gene %in% essential) {
+    return('E')  # Essential
+  } else if (gene %in% augment) {
+    return('A')  # Augmentative
+  } else {
+    return('NE')  # Non-essential
+  }
+}
+
+# Apply the function to create the new column
+amap_adj$gene_type <- sapply(amap_adj$gene, categorize_gene)
+
+# Convert gene_type to a factor
+amap_adj$gene_type <- factor(amap_adj$gene_type, levels = c('E', 'A', 'NE', 'NC'))
+```
+
+```{r}
+high_attention_codons <- amap_adj[amap_adj$zscore > 3,]
+
+# Count the occurrences of each gene_type factor
+high_attention_counts <- table(high_attention_codons$gene_type)
+```
+
+Chi-square test on high-attention codon counts:
+
+```{r}
+# Calculate the total number of codons in each category
+total_codons <- table(amap_adj$gene_type)
+
+# Calculate the total number of high attention codons
+total_high_attention_codons <- nrow(high_attention_codons)
+
+# Calculate the expected counts of high attention codons for each gene_type
+expected_counts <- prop.table(total_codons) * total_high_attention_codons
+
+# Perform the chi-squared test
+observed_counts <- table(high_attention_codons$gene_type)
+chi_square_test <- chisq.test(observed_counts, p = prop.table(total_codons))
+
+# Display the observed and expected counts, and the chi-squared test results
+observed_counts_df <- as.data.frame(observed_counts)
+colnames(observed_counts_df) <- c("gene_type", "observed_count")
+
+expected_counts_df <- as.data.frame(expected_counts)
+colnames(expected_counts_df) <- c("gene_type", "expected_count")
+
+results_df <- merge(observed_counts_df, expected_counts_df, by = "gene_type")
+
+print(results_df)
+print(chi_square_test)
+```
+
+Attention plot colored by gene-type:
+
+```{r}
+tol_palette <- c("#88CCEE", "#44AA99", "#DDCC77", "#CC6677")
+```
+
+```{r}
+ggplot(amap_adj, aes(x = nuc, y = attention, color = gene_type, fill = gene_type)) +
+  geom_bar(stat = "identity", position = 'dodge', width = 0.7) +
+  scale_color_manual(values = tol_palette, labels = c("Essential", "Augment", "Non-essential", "Non-coding")) +
+  scale_fill_manual(values = tol_palette, labels = c("Essential", "Augment", "Non-essential", "Non-coding")) +
+  labs(x = "Nucleotide Index", y = "Total Attention Received", color = "Gene Classification", fill = "Gene Classification") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom"
+  )
+```
